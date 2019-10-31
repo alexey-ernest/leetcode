@@ -64,43 +64,57 @@ func NewGraphPath(g *Graph) GraphPath {
     }
 }
 
-func (d *GraphPath) Path(source int) []string {
-    path := make([]int, d.graph.V())
+// finds all the disjoint paths
+func (d *GraphPath) DisjointHamiltonPaths() [][]string {
     marked := make([]bool, d.graph.V())
     
-    // find a directed path containing all the vertices (Hamilton path)
-    d.dfs(marked, path, source, 1, d.graph.V())
-    
-    res := make([]string, len(path))
-    for i := range path {
-        res[i] = d.graph.Name(path[i])
+    paths := make([][]string, 0)
+    for i := 0; i < d.graph.V(); i += 1 {
+        if marked[i] {
+            continue
+        }
+        
+        path := d.dfs(marked, i)
+        if len(path) == 0 {
+            continue
+        }
+        
+        // marking already traversed path to exclude it from the next pass
+        for _, w := range path {
+            marked[w] = true
+        }
+        
+        namedpath := make([]string, 0)
+        for j := 0; j < len(path); j += 1 {
+            namedpath = append(namedpath, d.graph.Name(path[j]))
+        }
+        paths = append(paths, namedpath)
     }
-    return res
+    
+    return paths
 }
 
-func (d *GraphPath) dfs(marked []bool, path []int, s int, counter int, total int) bool {
+func (d *GraphPath) dfs(marked []bool, s int) []int {
     marked[s] = true
     
-    if counter == total {
-        path[counter-1] = s
-        return true
-    }
-    
+    maxp := make([]int, 0)
     for _, w := range d.graph.Adj(s) {
         if marked[w] == true {
             // visited vertex
             continue
         }
         
-        if d.dfs(marked, path, w, counter+1, total) {
-            path[counter-1] = s
-            return true
-        } else {
-            marked[w] = false
+        p := d.dfs(marked, w)
+        
+        if len(p) > len(maxp) {
+            maxp = p
         }
     }
     
-    return false
+    marked[s] = false
+    
+    maxp = append([]int{s}, maxp...)
+    return maxp
 }
 
 func crackSafe(n int, k int) string {
@@ -110,7 +124,7 @@ func crackSafe(n int, k int) string {
     
     passpref := make(map[string][]int)
     for i, p := range passwords {
-        pref := p[:k-1]
+        pref := p[:n-1]
         passpref[pref] = append(passpref[pref], i)
     }
     
@@ -127,18 +141,16 @@ func crackSafe(n int, k int) string {
     }
     
     ep := NewGraphPath(&g)
-    source := passwords[0]
     
-    path := ep.Path(g.Index(source))
+    paths := ep.DisjointHamiltonPaths()
     
     res := ""
-    for _, p := range path {
-        if res == "" {
-            res += p
-        } else {
-            res += p[k-1:]
+    for _, path := range paths {
+        res += path[0]
+        for i := 1; i < len(path); i += 1 {
+            res += path[i][n-1:]
         }
-    }
+    } 
     
     return res
 }
